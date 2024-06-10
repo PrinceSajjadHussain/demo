@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTTP Request GUI</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.21/css/jquery.dataTables.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <style>
+        body {
+            padding: 20px;
+        }
+
+        .form-container {
+            max-width: 600px;
+            margin: auto;
+        }
+
+        .response-container {
+            margin-top: 20px;
+        }
+
+        .animated-button {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(0.95);
+            }
+
+            50% {
+                transform: scale(1);
+            }
+
+            100% {
+                transform: scale(0.95);
+            }
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1 class="text-center mb-4">HTTP Request GUI</h1>
+        <div class="form-container">
+            <form id="requestForm">
+                <div class="form-group">
+                    <label for="methodSelect">Method:</label>
+                    <select class="form-control" id="methodSelect" name="methodSelect" onchange="toggleFields()">
+                        <option value="GET">GET</option>
+                        <option value="POST">POST</option>
+                        <option value="PUT">PUT</option>
+                        <option value="DELETE">DELETE</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="urlInput">URL:</label>
+                    <input type="text" class="form-control" id="urlInput" name="urlInput" required>
+                </div>
+                <div class="form-group">
+                    <label for="headersInput">Headers (optional):</label>
+                    <textarea class="form-control" id="headersInput" name="headersInput" rows="2"></textarea>
+                </div>
+                <div class="form-group" id="nameField">
+                    <label for="nameInput">Name:</label>
+                    <input type="text" class="form-control" id="nameInput" name="nameInput">
+                </div>
+                <div class="form-group" id="priceField">
+                    <label for="priceInput">Price:</label>
+                    <input type="number" class="form-control" id="priceInput" name="priceInput">
+                </div>
+                <button type="button" class="btn btn-primary animated-button" onclick="sendRequest()">Send Request</button>
+            </form>
+            <div class="response-container">
+                <h2>Response:</h2>
+                <div id="responseContainer" class="collapse">
+                    <div id="tableContainer">
+                        <h3>Table Response:</h3>
+                        <table class="table table-striped" id="responseTable">
+                            <thead>
+                                <tr>
+                                    <th scope="col">#</th>
+                                    <th scope="col">Key</th>
+                                    <th scope="col">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody id="responseTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="chartContainer">
+                        <h3>Chart Response:</h3>
+                        <canvas id="responseChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <!-- DataTables JS -->
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.js"></script>
+
+    <script>
+        function toggleFields() {
+            var method = document.getElementById('methodSelect').value;
+            var nameField = document.getElementById('nameField');
+            var priceField = document.getElementById('priceField');
+            if (method === 'GET' || method === 'DELETE') {
+                nameField.style.display = 'none';
+                priceField.style.display = 'none';
+            } else {
+                nameField.style.display = 'block';
+                priceField.style.display = 'block';
+            }
+        }
+
+        function sendRequest() {
+            var method = document.getElementById('methodSelect').value;
+            var url = document.getElementById('urlInput').value;
+            var headers = document.getElementById('headersInput').value;
+
+            var body = {};
+            if (method === 'POST' || method === 'PUT') {
+                var name = document.getElementById('nameInput').value;
+                var price = document.getElementById('priceInput').value;
+                body = JSON.stringify({ name: name, price: price });
+            }
+
+            var xhr = new XMLHttpRequest();
+            xhr.open(method, url, true);
+
+            // Set request headers
+            var headersArray = headers.split('\n');
+            for (var i = 0; i < headersArray.length; i++) {
+                var header = headersArray[i];
+                var headerParts = header.split(':');
+                var headerName = headerParts[0].trim();
+                var headerValue = headerParts.slice(1).join(':').trim();
+                if (headerName && headerValue) {
+                    xhr.setRequestHeader(headerName, headerValue);
+                }
+            }
+
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (xhr.status === 200) {
+                        var response = JSON.parse(xhr.responseText);
+
+                        // Display response in table
+                        displayTableResponse(response);
+
+                        // Display response in chart
+                        displayChartResponse(response);
+
+                        // Show the response container
+                        document.getElementById('responseContainer').classList.add('show');
+                    } else {
+                        document.getElementById('responseContainer').innerHTML = 'Error: ' + xhr.status;
+                    }
+                }
+            };
+
+            // Send request with body if needed
+            if ((method === 'POST' || method === 'PUT') && body) {
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.send(body);
+            } else {
+                xhr.send();
+            }
+        }
+
+        function flattenObject(ob) {
+            var toReturn = {};
+
+            for (var i in ob) {
+                if (!ob.hasOwnProperty(i)) continue;
+
+                if ((typeof ob[i]) === 'object' && ob[i] !== null) {
+                    var flatObject = flattenObject(ob[i]);
+                    for (var x in flatObject) {
+                        if (!flatObject.hasOwnProperty(x)) continue;
+
+                        toReturn[i + '.' + x] = flatObject[x];
+                    }
+                } else {
+                    toReturn[i] = ob[i];
+                }
+            }
+            return toReturn;
+        }
+
+        function displayTableResponse(response) {
+            var tableBody = document.getElementById('responseTableBody');
+            tableBody.innerHTML = '';
+
+            var flattenedResponse = flattenObject(response);
+            var index = 1;
+            for (var key in flattenedResponse) {
+                if (flattenedResponse.hasOwnProperty(key)) {
+                    var row = '<tr>' +
+                        '<th scope="row">' + index++ + '</th>' +
+                        '<td>' + key + '</td>' +
+                        '<td>' + flattenedResponse[key] + '</td>' +
+                        '</tr>';
+                    tableBody.innerHTML += row;
+                }
+            }
+
+            // Initialize DataTable
+            $('#responseTable').DataTable();
+        }
+
+        function displayChartResponse(response) {
+            var flattenedResponse = flattenObject(response);
+            var labels = Object.keys(flattenedResponse);
+            var data = Object.values(flattenedResponse);
+
+            var ctx = document.getElementById('responseChart').getContext('2d');
+            var myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Response Data',
+                        data: data,
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize the form with default field visibility
+        toggleFields();
+
+        // Ensure DataTable is reinitialized properly
+        $(document).on('hidden.bs.modal', '#responseTable', function () {
+            $('#responseTable').DataTable().destroy();
+        });
+    </script>
+</body>
+
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
